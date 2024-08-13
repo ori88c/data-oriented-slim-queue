@@ -18,11 +18,8 @@ export declare const DEFAULT_SLIM_QUEUE_CAPACITY_INCREMENT_FACTOR = 1.5;
 /**
  * SlimQueue
  *
- * The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure use cases like
- * task queues, breadth-first search (BFS), and similar scenarios. It intentionally excludes linear
- * operations such as iteration and splicing, often found in more feature-rich queue variants, as these
- * are considered over-engineering for pure queue use cases. Instead, these complex operations can be
- * more effectively achieved through the composition of simpler building blocks.
+ * The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure FIFO use cases
+ * like task queues, breadth-first search (BFS), and similar scenarios.
  *
  * ### Data-Oriented Design
  * This implementation follows the principles of Data-Oriented Design (DOD), optimizing memory layout and
