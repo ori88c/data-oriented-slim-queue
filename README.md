@@ -1,6 +1,6 @@
 <h2 align="middle">Data Oriented Slim Queue</h2>
 
-The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure use cases like task queues, breadth-first search (BFS), and similar scenarios.
+The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure FIFO use cases such as task queues, breadth-first search (BFS), and similar scenarios.
 
 ## Data-Oriented Design
 
@@ -44,6 +44,8 @@ import { SlimQueue } from 'data-oriented-slim-queue';
 
 type RateLimiterTask<T> = () => Promise<T>;
 
+class RateLimiterThrottlingError extends Error { /* ... */ }
+
 class RateLimiter<T> {
   // Monotonic queue of ascending task-execution timestamps.
   private readonly _ascWindowTimestamps = new SlimQueue<number>();
@@ -55,7 +57,7 @@ class RateLimiter<T> {
     // ...
   }
 
-  public async tryExecutingTask(task: RateLimiterTask): Promise<T> {
+  public async tryExecutingTask(task: RateLimiterTask<T>): Promise<T> {
     // Evict out-of-window past execution timestamps.
     const absoluteNow: number = Date.now();
     while (
