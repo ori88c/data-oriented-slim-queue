@@ -73,20 +73,20 @@ function pushAllPopAllTest(initialCapacity, capacityIncrementFactor, itemsCount)
 }
 describe('SlimQueue tests', () => {
     describe('Happy path tests', () => {
-        test('push all items, then pop all items, no buffer reallocation due to sufficient initialCapacity', async () => {
+        test('push all items, then pop all items, expecting no buffer reallocation due to sufficient initialCapacity', async () => {
             const itemsCount = 116;
             const initialCapacity = itemsCount; // No buffer reallocations are expected.
             const capacityIncrementFactor = 1.5;
             pushAllPopAllTest(initialCapacity, capacityIncrementFactor, itemsCount);
         });
-        test('push all items, then pop all items, buffer reallocation should occur due to insufficient initialCapacity', async () => {
+        test('push all items, then pop all items, expecting buffer reallocation to occur due to insufficient initialCapacity', async () => {
             // This test ensures validity following multiple internal buffer reallocations.
             const itemsCount = 412;
             const initialCapacity = 1; // Small initial capacity, to trigger many buffer reallocations.
             const capacityIncrementFactor = 1.1; // Relatively small factor, to trigger multiple buffer re-allocations.
             pushAllPopAllTest(initialCapacity, capacityIncrementFactor, itemsCount);
         });
-        test('push items, clear the queue, validate successful clearing, repeatedly', async () => {
+        test('push items, clear the queue, validate successful clearing, and repeat', async () => {
             const repetitionsCount = 5;
             const itemsCount = 48;
             const queue = new data_oriented_slim_queue_1.SlimQueue();
@@ -102,7 +102,7 @@ describe('SlimQueue tests', () => {
                 expect(queue.isEmpty).toBe(true);
             }
         });
-        test('push random amount of items, then pop random amount of items, repeatedly', async () => {
+        test('push a random number of items, then pop a random number of items, and repeat the process', async () => {
             const mainLoopRepetitions = 51; // Sufficiently big to observe statistical errors (such should not exist).
             const maxRepetitionsForOperationBatch = 76;
             const expectedInternalState = []; // Left to Right -> First In to Last In.
@@ -170,7 +170,7 @@ describe('SlimQueue tests', () => {
         });
     });
     describe('Negative path tests', () => {
-        test('constructor should throw when initial capacity is not a natural number', () => {
+        test('constructor should throw when the initial capacity is not a natural number', () => {
             const nonNaturalNumbers = [-74, -65, -5.67, -0.00001, 0, 0.1, 0.08974, 9.543, 1898.5, 4000.0000001];
             for (const invalidInitialCapacity of nonNaturalNumbers) {
                 expect(() => new data_oriented_slim_queue_1.SlimQueue(invalidInitialCapacity)).toThrow();

@@ -83,8 +83,8 @@ class SlimQueue {
         this._size = 0;
         this._numberOfCapacityIncrements = 0;
         if (!isNaturalNumber(initialCapacity)) {
-            throw new Error(`SlimQueue instance could not be instantiated due to a non natural-number ` +
-                `initialCapacity of ${initialCapacity}`);
+            throw new Error(`Failed to instantiate SlimQueue due to a non-natural number initialCapacity ` +
+                `of ${initialCapacity}`);
         }
         this._validateCapacityIncrementFactor(capacityIncrementFactor);
         this._cyclicBuffer = new Array(initialCapacity).fill(undefined);
@@ -220,12 +220,12 @@ class SlimQueue {
     }
     _validateCapacityIncrementFactor(factor) {
         if (factor < MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR) {
-            throw new Error(`SlimQueue instance could not be instantiated due to a too-small ` +
-                `capacityIncrementFactor of ${factor}. Minimum allowed is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`);
+            throw new Error(`Failed to instantiate SlimQueue due to a too-small capacityIncrementFactor of ` +
+                `${factor}. The minimum allowed is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`);
         }
         if (factor > MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR) {
-            throw new Error(`SlimQueue instance could not be instantiated due to a too-big ` +
-                `capacityIncrementFactor of ${factor}. Maximum allowed is ${MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR}`);
+            throw new Error(`Failed to instantiate SlimQueue due to a too-large capacityIncrementFactor of ` +
+                `${factor}. The maximum allowed is ${MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR}`);
         }
     }
 }

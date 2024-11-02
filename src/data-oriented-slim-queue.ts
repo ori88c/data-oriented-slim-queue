@@ -91,8 +91,8 @@ export class SlimQueue<T> {
     ) {
         if (!isNaturalNumber(initialCapacity)) {
             throw new Error(
-                `SlimQueue instance could not be instantiated due to a non natural-number ` +
-                `initialCapacity of ${initialCapacity}`
+                `Failed to instantiate SlimQueue due to a non-natural number initialCapacity ` +
+                `of ${initialCapacity}`
             );
         }
 
@@ -253,15 +253,15 @@ export class SlimQueue<T> {
     private _validateCapacityIncrementFactor(factor: number): void {
         if (factor < MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR) {
             throw new Error(
-                `SlimQueue instance could not be instantiated due to a too-small ` +
-                `capacityIncrementFactor of ${factor}. Minimum allowed is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
+                `Failed to instantiate SlimQueue due to a too-small capacityIncrementFactor of ` +
+                `${factor}. The minimum allowed is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
             );
         }
 
         if (factor > MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR) {
             throw new Error(
-                `SlimQueue instance could not be instantiated due to a too-big ` +
-                `capacityIncrementFactor of ${factor}. Maximum allowed is ${MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
+                `Failed to instantiate SlimQueue due to a too-large capacityIncrementFactor of ` +
+                `${factor}. The maximum allowed is ${MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
             );
         }
     }
