@@ -1,6 +1,6 @@
 {
   "name": "data-oriented-slim-queue",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A slim and efficient in-memory queue with a basic API for Node.js projects. The implementation employs Data-Oriented Design using a cyclic buffer, optimizing memory layout through sequential item allocation.",
   "repository": {
     "type": "git",
