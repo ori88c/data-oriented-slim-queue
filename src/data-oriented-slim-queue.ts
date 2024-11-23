@@ -20,27 +20,29 @@ export const DEFAULT_SLIM_QUEUE_CAPACITY_INCREMENT_FACTOR = 1.5;
 const MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR = 1.1;
 const MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR = 2;
 
+type TraverseCallback = (currentIndex: number) => void;
+
 /**
  * SlimQueue
  * 
- * The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure FIFO use cases
- * like task queues, breadth-first search (BFS), and similar scenarios.
+ * The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure FIFO use
+ * cases like task queues, breadth-first search (BFS), and similar scenarios.
  * 
  * ### Data-Oriented Design
- * This implementation follows the principles of Data-Oriented Design (DOD), optimizing memory layout and
- * access patterns using arrays, particularly to enhance CPU cache efficiency. Unlike Object-Oriented Programming
- * (OOP), where each object may be allocated in disparate locations on the heap, DOD leverages the sequential
- * allocation of arrays, reducing the likelihood of cache misses.
+ * This implementation follows the principles of Data-Oriented Design (DOD), optimizing memory layout
+ * and access patterns using arrays, particularly to enhance CPU cache efficiency.
+ * Unlike Object-Oriented Programming (OOP), where each object may be allocated in disparate locations
+ * on the heap, DOD leverages the sequential allocation of arrays, reducing the likelihood of cache misses.
  *
  * ### Focused API
- * This package provides a queue and nothing more. The absence of linear operations like iteration and splicing
- * reflects a deliberate design choice, as resorting to such methods often indicates that a queue may not have
- * been the most appropriate data structure in the first place.
+ * This package provides a queue and nothing more. The absence of linear operations like iteration
+ * and splicing reflects a deliberate design choice, as resorting to such methods often indicates that
+ * a queue may not have been the most appropriate data structure in the first place.
  * 
  * ### Terminology
  * The 'push' and 'pop' terminology is inspired by std::queue in C++.
- * Unlike more complex data structures, a queue only allows pushing in one direction and popping from the other,
- * making this straightforward terminology appropriate.
+ * Unlike more complex data structures, a queue only allows pushing in one direction and popping from the
+ * other, making this straightforward terminology appropriate.
  * The `firstIn` getter provides access to the next item to be removed. This is useful in scenarios where 
  * items are removed based on a specific condition. For example, in a Rate Limiter that restricts the number 
  * of requests within a time window, an ascending queue of timestamps might represent request times. To determine 
@@ -71,7 +73,7 @@ export class SlimQueue<T> {
      * will be allocated, and all existing items will be transferred to this new
      * buffer. The size of the new buffer will be `oldBufferSize * capacityIncrementFactor`.
      * For example, if the initial capacity is 100 and the increment factor is 2,
-     * the queue will allocate a new buffer of 200 slots before adding the 101st item.
+     * the queue will allocate a new buffer of 200 slots before adding the 101th item.
      *
      * ### Considerations
      * A small initial capacity may lead to frequent dynamic memory reallocations,
@@ -91,8 +93,8 @@ export class SlimQueue<T> {
     ) {
         if (!isNaturalNumber(initialCapacity)) {
             throw new Error(
-                `Failed to instantiate SlimQueue due to a non-natural number initialCapacity ` +
-                `of ${initialCapacity}`
+                `Failed to instantiate SlimQueue: initialCapacity must be a natural number, ` +
+                `but received ${initialCapacity}`
             );
         }
 
@@ -104,7 +106,7 @@ export class SlimQueue<T> {
     /**
      * size
      * 
-     * @returns The amount of items currently stored in the queue.
+     * @returns The number of items currently stored in the queue.
      */	
     public get size(): number {
         return this._size;
@@ -122,11 +124,11 @@ export class SlimQueue<T> {
     /**
      * capacity
      *
-     * The `capacity` getter is useful for metrics and monitoring. If the observed capacity
-     * remains significantly larger than the queue's size after the initial warm-up period,
-     * it may indicate that the initial capacity was overestimated. Conversely, if the capacity
-     * has grown excessively due to buffer reallocations, it may suggest that the initial
-     * capacity was underestimated.
+     * The `capacity` getter is useful for metrics and monitoring.
+     * If the observed capacity remains significantly larger than the queue's size after the
+     * initial warm-up period, it may indicate that the initial capacity was overestimated.
+     * Conversely, if the capacity has grown excessively due to buffer reallocations, it may
+     * suggest that the initial capacity was underestimated.
      *
      * @returns The length of the internal buffer storing items.
      */
@@ -149,12 +151,17 @@ export class SlimQueue<T> {
     /**
      * firstIn
      * 
-     * @returns The oldest item currently stored in the queue, i.e., the "First In" item,
-     *          which will be removed during the next pop operation.
+     * Returns a reference to the oldest item currently stored in the queue.
+     * 
+     * Commonly used in scenarios like sliding-window algorithms, where items
+     * are conditionally removed based on an out-of-window indicator.
+     * 
+     * @returns The "First In" item, i.e., the oldest item in the queue,
+     *          which will be removed during the next `pop` operation.
      */
     public get firstIn(): T {
         if (this._size === 0) {
-            throw new Error("The firstIn getter of SlimQueue failed due to empty instance");
+            throw new Error("SlimQueue 'firstIn' getter failed: the queue is empty");
         }
         
         return this._cyclicBuffer[this._headIndex];
@@ -163,11 +170,10 @@ export class SlimQueue<T> {
     /**
      * push
      * 
-     * This method appends the item to the end of the queue as the "Last In" item.
-     * As a result, the queue's size increases by one.
+     * Appends an item to the end of the queue (i.e., the Last In), increasing its size by one.
      * 
-     * @param item The item to be added as the Last In, i.e., the newest item in the queue.
-     *             It will be removed by the pop method only after all the existing items
+     * @param item The item to add as the newest entry in the queue (i.e., the Last In).
+     *             It will be removed by the `pop` method only after all existing items
      *             have been removed.
      */
     public push(item: T): void {
@@ -181,14 +187,13 @@ export class SlimQueue<T> {
     /**
      * pop
      * 
-     * This method returns the oldest item currently stored in the queue and removes it.
-     * As a result, the queue's size decreases by one.
+     * Removes and returns the oldest (First In) item from the queue, decreasing its size by one.
      * 
-     * @returns The oldest item currently stored in the queue, i.e., the "First In" item.
+     * @returns The item that was removed from the queue (the First In item).
      */
     public pop(): T {
         if (this._size === 0) {
-            throw new Error("Cannot pop from an empty SlimQueue");
+            throw new Error("SlimQueue 'pop' operation failed: the queue is empty");
         }
         
         const oldestItem = this._cyclicBuffer[this._headIndex];
@@ -205,7 +210,7 @@ export class SlimQueue<T> {
     /**
      * clear
      * 
-     * This method removes all items from the current queue instance, leaving it empty.
+     * Removes all items from the queue, leaving it empty.
      */
     public clear(): void {
         while (!this.isEmpty) {
@@ -214,7 +219,31 @@ export class SlimQueue<T> {
 
         this._headIndex = 0;
     }
-    
+
+    /**
+     * getSnapshot
+     * 
+     * Returns an array of references to all the currently stored items in the queue,
+     * ordered from First-In to Last-In.
+     * 
+     * This method can be used, for example, to periodically log the K most recent metrics,
+     * such as CPU or memory usage.
+     * 
+     * @returns An array of references to the queue's items, ordered from First-In to Last-In.
+     */
+    public getSnapshot(): T[] {
+        const snapshot = new Array<T>(this._size);
+
+        let snapshotIndex = 0;
+        this._traverseInOrder(
+            (currentBufferIndex: number) => {
+                snapshot[snapshotIndex++] = this._cyclicBuffer[currentBufferIndex];
+            }
+        );
+
+        return snapshot;
+    }
+
     private _increaseCapacityIfNecessary(): void {
         const currCapacity = this._cyclicBuffer.length;
         if (this._size < currCapacity) {
@@ -227,15 +256,12 @@ export class SlimQueue<T> {
         // In the new cyclic buffer we re-order items, such that head is located
         // at index 0.
         let newBufferLastOccupiedIndex = 0;
-        for (let i = this._headIndex; i < this._cyclicBuffer.length; ++i) {
-            newCyclicBuffer[newBufferLastOccupiedIndex++] = this._cyclicBuffer[i];
-            this._cyclicBuffer[i] = undefined;
-        }
-        
-        for (let i = 0; i < this._headIndex; ++i) {
-            newCyclicBuffer[newBufferLastOccupiedIndex++] = this._cyclicBuffer[i];
-            this._cyclicBuffer[i] = undefined;
-        }
+        this._traverseInOrder(
+            (currentBufferIndex: number) => {
+                newCyclicBuffer[newBufferLastOccupiedIndex++] = this._cyclicBuffer[currentBufferIndex];
+                this._cyclicBuffer[currentBufferIndex] = undefined;
+            }
+        );
 
         this._headIndex = 0;
         this._cyclicBuffer = newCyclicBuffer;
@@ -253,16 +279,39 @@ export class SlimQueue<T> {
     private _validateCapacityIncrementFactor(factor: number): void {
         if (factor < MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR) {
             throw new Error(
-                `Failed to instantiate SlimQueue due to a too-small capacityIncrementFactor of ` +
-                `${factor}. The minimum allowed is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
+                `Failed to instantiate SlimQueue: The provided capacityIncrementFactor of ` +
+                `${factor} is too small. The minimum allowed value is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
             );
         }
 
         if (factor > MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR) {
             throw new Error(
-                `Failed to instantiate SlimQueue due to a too-large capacityIncrementFactor of ` +
-                `${factor}. The maximum allowed is ${MAX_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
+                `Failed to instantiate SlimQueue: The provided capacityIncrementFactor of ` +
+                `${factor} is too large. The maximum allowed value is ${MIN_ALLOWED_CAPACITY_INCREMENT_FACTOR}`
             );
+        }
+    }
+
+    /**
+     * _traverseInOrder
+     * 
+     * Facilitates traversing the items in the queue in order, from first-in to last-in. 
+     * The method accepts a callback, which is invoked with the current item index in
+     * the internal cyclic buffer.
+     * 
+     * @param callback The callback to execute, provided with the current item index.
+     */
+    private _traverseInOrder(callback: TraverseCallback): void {
+        let itemsTraversed = 0;
+        let currentBufferIndex = this._headIndex;
+
+        while (itemsTraversed < this._size) {
+            callback(currentBufferIndex);
+            ++itemsTraversed;
+
+            if (++currentBufferIndex === this._cyclicBuffer.length) {
+                currentBufferIndex = 0;
+            }
         }
     }
 }

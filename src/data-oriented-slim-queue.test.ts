@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { DEFAULT_SLIM_QUEUE_CAPACITY_INCREMENT_FACTOR, DEFAULT_SLIM_QUEUE_INITIAL_CAPACITY, SlimQueue } from './data-oriented-slim-queue';
+import { SlimQueue } from './data-oriented-slim-queue';
 
 function getNewCapacity(oldCapacity: number, incrementFactor: number): number {
   return Math.ceil(oldCapacity * incrementFactor);
@@ -29,12 +29,6 @@ function pushAllPopAllTest(
 
   const repetitionsCount = 5; // Amount of push-all & pop-all repetitions.
   const firstItemValue = 1;
-  const expectedPopOrder = [];
-
-  // Items are 1,2,3,...
-  for (let ithItem = 1; ithItem <= itemsCount; ++ithItem) {
-    expectedPopOrder.push(ithItem);
-  }
 
   let expectedNumberOfCapacityIncrements = 0;
   for (let currRepetition = 0; currRepetition < repetitionsCount; ++currRepetition) {
@@ -42,7 +36,8 @@ function pushAllPopAllTest(
     expect(queue.size).toBe(0);
     expect(() => queue.firstIn).toThrow();
 
-    // Push all items.
+    // Push all items: 1, 2, 3,..., itemsCount (an ascending numeric sequence from
+    // front to back).
     for (let ithItem = 1; ithItem <= itemsCount; ++ithItem) {
       const oldCapacity = queue.capacity;
       const shouldTriggerCapacityIncrement = queue.size === queue.capacity;
@@ -62,13 +57,19 @@ function pushAllPopAllTest(
       expect(queue.firstIn).toBe(firstItemValue);
     }
 
+    const snapshot = queue.getSnapshot();
+    expect(snapshot.length).toBe(itemsCount);
+    for (let ithItem = 1; ithItem <= itemsCount; ++ithItem) {
+      expect(snapshot[ithItem - 1]).toBe(ithItem);
+    }
+
     // Pop all items.
-    const capacityBeforeRemovingItems = queue.capacity; // Does not change following pop operations.
+    const capacityBeforeRemoval = queue.capacity; // The capacity remains unchanged by pop operations.
     for (let ithRemovedItem = 1; ithRemovedItem <= itemsCount; ++ithRemovedItem) {
       const removedItem = queue.pop();
       expect(removedItem).toBe(ithRemovedItem)
       expect(queue.size).toBe(itemsCount - ithRemovedItem);
-      expect(queue.capacity).toBe(capacityBeforeRemovingItems);
+      expect(queue.capacity).toBe(capacityBeforeRemoval);
       expect(queue.numberOfCapacityIncrements).toEqual(expectedNumberOfCapacityIncrements);
 
       if (ithRemovedItem === itemsCount) {
@@ -85,7 +86,9 @@ function pushAllPopAllTest(
 
 describe('SlimQueue tests', () => {
   describe('Happy path tests', () => {
-    test('push all items, then pop all items, expecting no buffer reallocation due to sufficient initialCapacity', async () => {
+    test(
+      'push all items, then pop all items, expecting no buffer reallocation ' +
+      'due to sufficient initial capacity', async () => {
       const itemsCount = 116;
       const initialCapacity = itemsCount; // No buffer reallocations are expected.
       const capacityIncrementFactor = 1.5;
@@ -93,9 +96,11 @@ describe('SlimQueue tests', () => {
       pushAllPopAllTest(initialCapacity, capacityIncrementFactor, itemsCount);
     });
 
-    test('push all items, then pop all items, expecting buffer reallocation to occur due to insufficient initialCapacity', async () => {
+    test(
+      'push all items, then pop all items, expecting buffer reallocations to occur ' +
+      'due to insufficient initialCapacity', async () => {
       // This test ensures validity following multiple internal buffer reallocations.
-      const itemsCount = 412;
+      const itemsCount = 803;
       const initialCapacity = 1; // Small initial capacity, to trigger many buffer reallocations.
       const capacityIncrementFactor = 1.1; // Relatively small factor, to trigger multiple buffer re-allocations.
 
@@ -107,96 +112,98 @@ describe('SlimQueue tests', () => {
       const itemsCount = 48;
       const queue = new SlimQueue<string>();
 
+      const createItem = (ithItem: number) => `ITEM_PREFIX_${ithItem}`;
+      const firstItem = createItem(1);
       for (let currRepetition = 0; currRepetition < repetitionsCount; ++currRepetition) {
         for (let ithItem = 1; ithItem <= itemsCount; ++ithItem) {
-          queue.push(`ITEM_PREFIX_${ithItem}`);
+          const currItem = createItem(ithItem);
+          queue.push(currItem);
         }
 
         expect(queue.size).toBe(itemsCount);
         expect(queue.isEmpty).toBe(false);
-        expect(queue.firstIn).toBe("ITEM_PREFIX_1");
+        expect(queue.firstIn).toBe(firstItem);
         queue.clear();
         expect(queue.size).toBe(0);
         expect(queue.isEmpty).toBe(true);
       }
     });
 
-    test('push a random number of items, then pop a random number of items, and repeat the process', async () => {
-      const mainLoopRepetitions = 51; // Sufficiently big to observe statistical errors (such should not exist).
+    test(
+      'push a random number of items, then pop a random number of items, ' +
+      'perform validations including snapshot validity, and repeat the process', async () => {
+      const numberOfMainLoopRepetitions = 65; // Sufficiently big to observe statistical errors (such should not exist).
       const maxRepetitionsForOperationBatch = 76;
-      const expectedInternalState: number[] = []; // Left to Right -> First In to Last In.
-      let nextItemValue = -1451;
+      let nextItemValue = -1403;
+      let expectedFirstIn = nextItemValue;
       let expectedSize = 0;
-      let expectedNumberOfCapacityIncrements = 0;
-      let expectedCapacity = DEFAULT_SLIM_QUEUE_INITIAL_CAPACITY;
 
-      const queue = new SlimQueue<number>(); // Default params (initial capacity, capacity increment factor.)
+      // The items invariant ensures that items are ordered in an ascending numeric sequence:
+      // -k, -k+1, ..., 0, 1, 2, ..., m-1, m, from front to back (first-in to last-in).
+      const queue = new SlimQueue<number>(); // Default params (initial capacity, capacity increment factor).
 
-      const validatePush = () => {
-        if (queue.size === queue.capacity) {
-          // A buffer re-allocation is expected to be triggered.
-          ++expectedNumberOfCapacityIncrements;
-          expectedCapacity = getNewCapacity(expectedCapacity, DEFAULT_SLIM_QUEUE_CAPACITY_INCREMENT_FACTOR);
-        }
-
-        queue.push(nextItemValue);
-        expectedInternalState.push(nextItemValue);
-        ++nextItemValue;
+      const pushAndValidate = (): void => {
+        queue.push(nextItemValue++);
         ++expectedSize;
 
         expect(queue.size).toBe(expectedSize);
-        expect(queue.size).toBe(expectedInternalState.length);
         expect(queue.isEmpty).toBe(false);
-        expect(queue.firstIn).toBe(expectedInternalState[0]);
-        expect(queue.capacity).toBe(expectedCapacity);
-        expect(queue.numberOfCapacityIncrements).toBe(expectedNumberOfCapacityIncrements);
+        expect(queue.firstIn).toBe(expectedFirstIn);
       };
 
-      const validatePopFromNonEmptyQueue = () => {
-        const expectedRemovedItem = expectedInternalState[0];
-        const removedItem = queue.pop();
-        expect(removedItem).toBe(expectedRemovedItem);
+      const popAndValidate = (): void => {
+        if (queue.isEmpty) {
+          expect(() => queue.pop()).toThrow();
+          return;
+        }
 
-        expectedInternalState.shift(); // Inefficient O(n), yet sufficient for testing purposes.
+        const removedItem = queue.pop();
+        expect(removedItem).toBe(expectedFirstIn++);
+
         --expectedSize;
         expect(queue.size).toBe(expectedSize);
-        expect(queue.size).toBe(expectedInternalState.length);
-        expect(queue.capacity).toBe(expectedCapacity);
-        expect(queue.numberOfCapacityIncrements).toBe(expectedNumberOfCapacityIncrements);
         expect(queue.isEmpty).toBe(expectedSize === 0);
         if (!queue.isEmpty) {
-          expect(queue.firstIn).toBe(expectedInternalState[0]);
+          expect(queue.firstIn).toBe(expectedFirstIn);
         }
       };
 
-      let remainedMainLoopIterations = mainLoopRepetitions;
+      const validateSnapshot = (): void => {
+        const snapshot = queue.getSnapshot();
+        expect(snapshot.length).toBe(queue.size);
+        if (queue.isEmpty) {
+          return;
+        }
+
+        let expectedCurrentItem = expectedFirstIn;
+        for (const currentItem of snapshot) {
+          expect(currentItem).toBe(expectedCurrentItem++);
+        }
+      };
+
+      let remainedMainLoopIterations = numberOfMainLoopRepetitions;
       do {
         const pushCount = Math.ceil(Math.random() * maxRepetitionsForOperationBatch);
         const popCount = Math.ceil(Math.random() * maxRepetitionsForOperationBatch);
 
         for (let currPush = 1; currPush <= pushCount; ++currPush) {
-          validatePush();
+          pushAndValidate();
         }
+
+        validateSnapshot();
 
         for (let currPop = 1; currPop <= popCount; ++currPop) {
-          if (expectedSize === 0) {
-            expect(queue.isEmpty).toBe(true);
-            expect(queue.size).toBe(0);
-            expect(queue.capacity).toBe(expectedCapacity);
-            expect(queue.numberOfCapacityIncrements).toBe(expectedNumberOfCapacityIncrements);
-            expect(() => queue.firstIn).toThrow();
-            expect(expectedInternalState.length).toBe(0);
-            continue;
-          }
-
-          // Non empty queue.
-          validatePopFromNonEmptyQueue();
+          popAndValidate();
         }
+
+        validateSnapshot();
       } while (--remainedMainLoopIterations > 0);
 
+      // Digest: clean the queue.
       while (expectedSize > 0) {
-        validatePopFromNonEmptyQueue();
+        popAndValidate();
       }
+      validateSnapshot();
     });
   });
 
@@ -224,7 +231,7 @@ describe('SlimQueue tests', () => {
       }
     });
 
-    test('should throw when triggering the firstIn getter on an empty instance', () => {
+    test('should throw an error when accessing the firstIn getter on an empty instance', () => {
       const queue = new SlimQueue();
       expect(() => queue.firstIn).toThrow();
     });

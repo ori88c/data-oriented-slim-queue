@@ -2,13 +2,16 @@
 
 The `SlimQueue` class implements an in-memory queue with a basic API, targeting pure FIFO use cases such as task queues, breadth-first search (BFS), and similar scenarios.
 
+This versatile data structure is commonly associated with task prioritization, ensuring tasks are processed in order. It also proves valuable in optimizing sliding-window algorithms, where the oldest item (First In) is evicted based on a specific indicator.
+
 ## Data-Oriented Design :gear:
 
 This implementation follows the principles of Data-Oriented Design (DOD), optimizing memory layout and access patterns using arrays, particularly to enhance CPU cache efficiency. Unlike Object-Oriented Programming (OOP), where each object may be allocated in disparate locations on the heap, DOD leverages the sequential allocation of arrays, reducing the likelihood of cache misses.
 
 ## Focused API :dart:
 
-This package provides a queue and nothing more. The absence of linear operations like iteration and splicing reflects a deliberate design choice, as resorting to such methods often indicates that a queue may not have been the most appropriate data structure in the first place.
+This package provides a queue and nothing more. The absence of linear operations like iteration and splicing reflects a deliberate design choice, as resorting to such methods often indicates that a queue may not have been the most appropriate data structure in the first place.  
+The sole exception is the `getSnapshot` method, included to support metrics or statistical analysis, particularly in use cases like tracking the K most recent items.
 
 ## Table of Contents :bookmark_tabs:
 
@@ -21,10 +24,10 @@ This package provides a queue and nothing more. The absence of linear operations
 
 ## Key Features :sparkles:<a id="key-features"></a>
 
-- __Basic Queue API__: Straightforward API, targeting pure use-cases of queues.
+- __Basic Queue API__: Targeting pure use-cases of queues.
 - __Efficiency :gear:__: Featuring a Data-Oriented Design with capacity-tuning capability, to reduce or prevent reallocations of the internal cyclic buffer.
 - __Comprehensive Documentation :books:__: The class is thoroughly documented, enabling IDEs to provide helpful tooltips that enhance the coding experience.
-- __Tests :test_tube:__: **Fully covered** by comprehensive unit tests, including validations to ensure that internal capacity increases as expected.
+- __Tests :test_tube:__: **Fully covered** by comprehensive unit tests, including **randomized simulations** of real-life scenarios and validations to ensure proper internal capacity scaling.
 - **TypeScript** support.
 - No external runtime dependencies: Only development dependencies are used.
 - ES2020 Compatibility: The `tsconfig` target is set to ES2020, ensuring compatibility with ES2020 environments.
@@ -33,9 +36,10 @@ This package provides a queue and nothing more. The absence of linear operations
 
 The `SlimQueue` class provides the following methods:
 
-* __push__: Appends the item to the end of the queue as the "Last In" item. As a result, the queue's size increases by one.
-* __pop__: Returns the oldest item currently stored in the queue and removes it. As a result, the queue's size decreases by one.
-* __clear__: Removes all items from the current queue instance, leaving it empty.
+* __push__: Appends an item to the end of the queue (i.e., the Last In), increasing its size by one.
+* __pop__: Removes and returns the oldest (First In) item from the queue, decreasing its size by one.
+* __clear__: Removes all items from the queue, leaving it empty.
+* __getSnapshot__: Returns an array of references to all the currently stored items in the queue, ordered from First-In to Last-In.
 
 If needed, refer to the code documentation for a more comprehensive description.
 
@@ -47,15 +51,16 @@ The `SlimQueue` class provides the following getter methods to reflect the curre
 
 * __size__: The amount of items currently stored in the queue.
 * __isEmpty__: Indicates whether the queue does not contain any item.
+* __firstIn__: Returns a reference to the oldest item currently stored in the queue (the First In item), which will be removed during the next pop operation.
 * __capacity__: The length of the internal buffer storing items. If the observed capacity remains significantly larger than the queue's size after the initial warm-up period, it may indicate that the initial capacity was overestimated. Conversely, if the capacity has grown excessively due to buffer reallocations, it may suggest that the initial capacity was underestimated.
 * __numberOfCapacityIncrements__: The number of internal buffer reallocations due to insufficient capacity that have occurred during the instance's lifespan. A high number of capacity increments suggests that the initial capacity was underestimated.
-* __firstIn__: The oldest item currently stored in the queue, i.e., the "First In" item, which will be removed during the next pop operation.
 
 To eliminate any ambiguity, all getter methods have **O(1)** time and space complexity.
 
 ## Use Case Example: Rate Limiting :man_technologist:<a id="use-case-example"></a>
 
-Consider a component designed for rate-limiting promises using a sliding-window approach. Suppose a window duration of `windowDurationMs` milliseconds, with a maximum of `tasksPerWindow` tasks allowed within each window. The rate limiter will only trigger the execution of a task if fewer than `tasksPerWindow` tasks have started execution within the time window `[now - windowDurationMs, now]`.  
+Consider a component designed for rate-limiting promises using a sliding-window approach. Suppose a window duration of `windowDurationMs` milliseconds, with a maximum of `tasksPerWindow` tasks allowed within each window. The rate limiter will only trigger the execution of a task if fewer than `tasksPerWindow` tasks have started execution within the time window `[now - windowDurationMs, now]`.
+
 For simplicity, this example focuses on a single method that initiates task execution only if the current window's limit has not been reached. If the limit has been exceeded, an error is thrown.
 In this scenario, we employ the `isEmpty`, `firstIn`, and `size` getters, along with the `push` and `pop` methods.
 
@@ -82,11 +87,8 @@ class RateLimiter<T> {
 
   public async tryExecutingTask(task: RateLimiterTask<T>): Promise<T> {
     // Evict out-of-window past execution timestamps.
-    const absoluteNow: number = Date.now();
-    while (
-      !this._ascWindowTimestamps.isEmpty &&
-      (absoluteNow - this._ascWindowTimestamps.firstIn) >= this._windowDurationMs
-    ) {
+    const now: number = Date.now();
+    while (this._isOutdatedFirstIn(now)) {
       this._ascWindowTimestamps.pop();
     }
 
@@ -94,8 +96,18 @@ class RateLimiter<T> {
       throw new RateLimiterThrottlingError();
     }
 
-    this._ascWindowTimestamps.push(absoluteNow);
-    return await task();
+    this._ascWindowTimestamps.push(now);
+    return task();
+  }
+
+  // Eviction indicator.
+  private _isOutdatedFirstIn(now: number): boolean {
+    if (this._ascWindowTimestamps.isEmpty) {
+      return false;
+    }
+
+    const elapsedMsSinceOldestTimestamp = now - this._ascWindowTimestamps.firstIn;
+    return elapsedMsSinceOldestTimestamp >= this._windowDurationMs;
   }
 }
 ```
